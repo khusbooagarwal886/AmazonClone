@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import jwt, { Secret, SignOptions } from 'jsonwebtoken';
 import User from '../models/User';
 import { ENV } from '../config/env';
@@ -13,6 +14,13 @@ export const register = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      res.status(503).json({
+        message: 'Database is still connecting. Please ensure MONGODB_URI is configured on Render and 0.0.0.0/0 is allowed in MongoDB Atlas.',
+      });
+      return;
+    }
+
     const { name, email, password } = req.body;
 
     // Check if user already exists
@@ -56,6 +64,13 @@ export const login = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      res.status(503).json({
+        message: 'Database is still connecting. Please ensure MONGODB_URI is configured on Render and 0.0.0.0/0 is allowed in MongoDB Atlas.',
+      });
+      return;
+    }
+
     const { email, password } = req.body;
 
 
