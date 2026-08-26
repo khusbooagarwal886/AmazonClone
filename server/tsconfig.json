@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    /* Base Options */
+    "target": "ES2022",                          /* JavaScript version output by the compiler */
+    "module": "CommonJS",                        /* Module system for generated code */
+    "moduleResolution": "node",                  /* How TypeScript looks up a file from a module specifier */
+    "rootDir": "./src",                          /* Root directory of source files */
+    "outDir": "./dist",                          /* Output directory for compiled JavaScript */
+    
+    /* Strict Type-Checking Options */
+    "strict": true,                              /* Enable all strict type-checking options */
+    "noImplicitAny": true,                       /* Raise error on expressions and declarations with implied 'any' type */
+    "strictNullChecks": true,                    /* Enable strict null/undefined checks */
+    
+    /* Module Interoperability */
+    "esModuleInterop": true,                     /* Enables emit interoperability between CommonJS and ES Modules */
+    "allowSyntheticDefaultImports": true,        /* Allow default imports from modules with no default export */
+    "forceConsistentCasingInFileNames": true,     /* Disallow inconsistently-cased references to the same file */
+    
+    /* Advanced */
+    "skipLibCheck": true,                        /* Skip type checking of declaration files (.d.ts) for faster builds */
+    "sourceMap": true                            /* Generate .map files to allow debugging TypeScript directly */
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

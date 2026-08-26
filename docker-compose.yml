@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # Local Redis Cache Service
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: amazon-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - amazon-network
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ==========================================
+  # Node.js Express Backend Service
+  # ==========================================
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: amazon-api
+    restart: unless-stopped
+    ports:
+      - '5000:5000'
+    env_file:
+      - ./server/.env
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      # Connect to the local Redis container by its service name over Docker internal network
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - amazon-network
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  amazon-network:
+    driver: bridge
