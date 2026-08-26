@@ -23,8 +23,7 @@
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
     "nodemon": "^3.1.14",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.8.2"
+    "ts-node": "^10.9.2"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -38,6 +37,7 @@
     "stripe": "^22.5.0",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",
+    "typescript": "^5.8.2",
     "winston": "^3.19.0",
     "zod": "^4.4.3"
   }
