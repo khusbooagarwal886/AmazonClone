@@ -20,14 +20,23 @@ connectDB();
 connectRedis();
 
 // Parse allowed CORS origins (supports comma-separated origins)
-const allowedOrigins = ENV.CLIENT_URL.split(',').map((url) => url.trim());
+const allowedOrigins = ENV.CLIENT_URL.split(',').map((url) => url.trim().replace(/\/$/, ''));
 
 // Middleware
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (e.g. mobile apps, curl, Postman, server-to-server)
-      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      if (
+        !origin ||
+        allowedOrigins.includes('*') ||
+        allowedOrigins.includes(origin) ||
+        origin.endsWith('.vercel.app') ||
+        origin.endsWith('.netlify.app') ||
+        origin.endsWith('.onrender.com') ||
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1')
+      ) {
         callback(null, true);
       } else {
         callback(new Error(`Origin ${origin} not allowed by CORS`));
@@ -75,8 +84,16 @@ app.use('/api/orders', orderRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
-app.listen(ENV.PORT, () => {
+app.listen(ENV.PORT, '0.0.0.0', () => {
   logger.info(`Server is running on port ${ENV.PORT} in ${ENV.NODE_ENV} mode`);
+});
+
+process.on('unhandledRejection', (reason: unknown) => {
+  logger.error(`Unhandled Rejection: ${reason instanceof Error ? reason.stack || reason.message : String(reason)}`);
+});
+
+process.on('uncaughtException', (error: Error) => {
+  logger.error(`Uncaught Exception: ${error.stack || error.message}`);
 });
 
 
