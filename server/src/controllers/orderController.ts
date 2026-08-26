@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import Stripe from 'stripe';
 import { AuthRequest } from '../middleware/auth';
 import { stripe } from '../config/stripe';
 import { ENV } from '../config/env';
 import Product from '../models/Product';
 import Order from '../models/Order';
+import { MOCK_PRODUCTS } from '../data/mockProducts';
 import {
   CheckoutSessionInput,
   UpdateOrderStatusInput,
@@ -176,7 +178,19 @@ export const createCheckoutSession = async (
     const orderItemsSummary = [];
 
     for (const item of items) {
-      const product = await Product.findById(item.productId);
+      let product: any = null;
+
+      if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(item.productId)) {
+        try {
+          product = await Product.findById(item.productId);
+        } catch {
+          // fallback to mock products if not found
+        }
+      }
+
+      if (!product) {
+        product = MOCK_PRODUCTS.find((p) => p._id === item.productId);
+      }
 
       if (!product) {
         res.status(404).json({

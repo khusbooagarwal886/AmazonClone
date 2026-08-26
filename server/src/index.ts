@@ -63,6 +63,9 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({
     status: 'ok',
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    hasMongoUri: Boolean(ENV.MONGODB_URI),
+    mongoHost: mongoose.connection.host || null,
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     environment: ENV.NODE_ENV,
