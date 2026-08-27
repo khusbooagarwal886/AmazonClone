@@ -63,21 +63,7 @@ export const createProductReview = async (
       return;
     }
 
-    // 3. Verified Purchase check (optional stretch): Check if user has purchased the item in a paid order
-    const hasPurchased = await Order.exists({
-      user: userId,
-      isPaid: true,
-      'orderItems.product': productId,
-    });
-
-    if (!hasPurchased && req.user?.role !== 'admin') {
-      res.status(400).json({
-        message: 'Only verified purchasers can submit a review for this product',
-      });
-      return;
-    }
-
-    // 4. Create the new review document
+    // 3. Create the new review document
     const review = await Review.create({
       user: userId,
       product: productId,
