@@ -66,13 +66,14 @@ function Navigation() {
         </form>
 
         {/* Nav links & Auth */}
-        <nav className="flex items-center space-x-3 sm:space-x-5 text-xs sm:text-sm font-medium shrink-0">
-          {/* Explicit Home Link */}
+        <nav className="flex items-center space-x-2 sm:space-x-4 text-xs sm:text-sm font-medium shrink-0">
+          {/* Home Link */}
           <Link
             to="/"
-            className="hover:text-amazon-amber text-white font-semibold transition px-2 py-1 rounded hover:bg-white/10"
+            className="flex items-center space-x-1 text-white hover:text-amazon-amber font-semibold transition px-2.5 py-1.5 rounded hover:bg-white/10"
           >
-            Home
+            <span className="text-sm">🏠</span>
+            <span>Home</span>
           </Link>
 
           {/* Cart Navigation Link with Badge */}
