@@ -47,9 +47,27 @@ export interface OrderItem {
   image: string;
 }
 
+export interface Address {
+  id: string;
+  fullName: string;
+  phone: string;
+  street: string;
+  apartment?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  isDefault?: boolean;
+}
+
 export interface ShippingAddress {
+  fullName?: string;
+  phone?: string;
+  street?: string;
+  apartment?: string;
   address?: string;
   city?: string;
+  state?: string;
   postalCode?: string;
   country?: string;
 }

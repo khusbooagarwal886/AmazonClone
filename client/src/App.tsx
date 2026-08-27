@@ -10,19 +10,25 @@ import { CartPage } from './pages/CartPage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AddressModal } from './components/AddressModal';
 import { useAuthStore } from './store/useAuthStore';
 import { useCartStore } from './store/useCartStore';
+import { useAddressStore } from './store/useAddressStore';
 
 function Navigation() {
   const { user, isAuthenticated, clearAuth } = useAuthStore();
   const totalItems = useCartStore((state) => state.getTotalItems());
+  const { getSelectedAddress, setUser: setAddressUser } = useAddressStore();
+  const selectedAddress = getSelectedAddress();
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const navigate = useNavigate();
   const [navSearch, setNavSearch] = useState('');
 
   useEffect(() => {
     const userKey = user?.id || user?._id || user?.email || null;
     useCartStore.getState().setUser(userKey);
-  }, [user]);
+    setAddressUser(userKey);
+  }, [user, setAddressUser]);
 
   const handleLogout = () => {
     clearAuth();
@@ -39,15 +45,36 @@ function Navigation() {
   };
 
   return (
-    <header className="bg-amazon-header text-white px-3 sm:px-4 py-2.5 shadow sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-2.5 sm:gap-4">
-        {/* Amazon Logo */}
-        <Link
-          to="/"
-          className="text-lg sm:text-xl font-bold tracking-tight text-white hover:text-amazon-amber transition flex items-center shrink-0"
-        >
-          amazon<span className="text-amazon-amber">.clone</span>
-        </Link>
+    <>
+      <header className="bg-amazon-header text-white px-3 sm:px-4 py-2.5 shadow sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-2.5 sm:gap-4">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            {/* Amazon Logo */}
+            <Link
+              to="/"
+              className="text-lg sm:text-xl font-bold tracking-tight text-white hover:text-amazon-amber transition flex items-center shrink-0"
+            >
+              amazon<span className="text-amazon-amber">.clone</span>
+            </Link>
+
+            {/* Deliver To Location Button */}
+            <button
+              type="button"
+              onClick={() => setIsAddressModalOpen(true)}
+              className="flex items-center space-x-1 text-left py-1 px-1.5 sm:px-2 rounded hover:ring-1 hover:ring-white/60 transition cursor-pointer text-gray-200 hover:text-white"
+              title="Change delivery location"
+            >
+              <span className="text-sm sm:text-base text-amazon-amber">📍</span>
+              <div className="leading-tight">
+                <span className="block text-[10px] text-gray-300 font-normal truncate max-w-[90px] sm:max-w-[120px]">
+                  Deliver to {user ? user.name.split(' ')[0] : 'Guest'}
+                </span>
+                <span className="block font-bold text-white text-xs truncate max-w-[90px] sm:max-w-[120px]">
+                  {selectedAddress ? `${selectedAddress.city} ${selectedAddress.postalCode}` : 'Select Location'}
+                </span>
+              </div>
+            </button>
+          </div>
 
         {/* Global Header Search Bar - Drops to full-width row on mobile (< sm) */}
         <form
@@ -155,6 +182,8 @@ function Navigation() {
         </div>
       </div>
     </header>
+    <AddressModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} />
+  </>
   );
 }
 
