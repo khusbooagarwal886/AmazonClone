@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import { apiGet } from '../lib/api';
 import { MOCK_PRODUCTS } from '../data/mockProducts';
 import { ProductCard } from '../components/ProductCard';
-import { ErrorMessage } from '../components/ErrorMessage';
 import { EmptyState } from '../components/EmptyState';
 import type { Product, ProductsResponse } from '../types';
 
@@ -59,18 +58,74 @@ export function HomePage() {
   const [maxPriceInput, setMaxPriceInput] = useState(currentMaxPrice);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
-  // Data fetching state
-  const [products, setProducts] = useState<Product[]>([]);
-  const [total, setTotal] = useState<number>(0);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  // Initialize with initial mock slice so UI renders INSTANTLY with 0 delay
+  const [products, setProducts] = useState<Product[]>(() => MOCK_PRODUCTS.slice(0, 16) as Product[]);
+  const [total, setTotal] = useState<number>(MOCK_PRODUCTS.length);
+  const [totalPages, setTotalPages] = useState<number>(Math.ceil(MOCK_PRODUCTS.length / 16));
 
-  // Fetch products function with instant fallback
+  // Synchronous client filter helper (guarantees zero lag and zero blank screens)
+  const filterLocalProducts = useCallback(() => {
+    let filtered = [...MOCK_PRODUCTS];
+
+    if (currentCategory) {
+      const cat = currentCategory.toLowerCase();
+      filtered = filtered.filter((p) => {
+        if (cat === 'apparel' || cat === 'clothing') {
+          return p.category === 'apparel' || p.category === 'clothing';
+        }
+        return p.category.toLowerCase() === cat;
+      });
+    }
+
+    if (currentMinPrice) {
+      const min = Number(currentMinPrice);
+      if (!isNaN(min)) filtered = filtered.filter((p) => p.price >= min);
+    }
+
+    if (currentMaxPrice) {
+      const max = Number(currentMaxPrice);
+      if (!isNaN(max)) filtered = filtered.filter((p) => p.price <= max);
+    }
+
+    if (currentMinRating) {
+      const rating = Number(currentMinRating);
+      if (!isNaN(rating)) filtered = filtered.filter((p) => (p.ratingAvg || 0) >= rating);
+    }
+
+    if (currentInStock) {
+      filtered = filtered.filter((p) => p.stock > 0);
+    }
+
+    if (currentSearch) {
+      const q = currentSearch.toLowerCase();
+      filtered = filtered.filter((p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q)
+      );
+    }
+
+    if (currentSort === 'price-asc') filtered.sort((a, b) => a.price - b.price);
+    else if (currentSort === 'price-desc') filtered.sort((a, b) => b.price - a.price);
+    else if (currentSort === 'rating') filtered.sort((a, b) => (b.ratingAvg || 0) - (a.ratingAvg || 0));
+    else if (currentSort === 'popular') filtered.sort((a, b) => (b.numReviews || 0) - (a.numReviews || 0));
+
+    const limit = 16;
+    const skip = (currentPage - 1) * limit;
+    const paginated = filtered.slice(skip, skip + limit);
+
+    setProducts(paginated as Product[]);
+    setTotal(filtered.length);
+    setTotalPages(Math.ceil(filtered.length / limit) || 1);
+  }, [currentCategory, currentMinPrice, currentMaxPrice, currentMinRating, currentInStock, currentSearch, currentSort, currentPage]);
+
+  // Load products: Instant local render + async live backend sync
   const loadProducts = useCallback(async () => {
+    // 1. Immediately apply local filter so UI is always populated
+    filterLocalProducts();
+
+    // 2. Fetch live data from backend to sync fresh database changes
     try {
-      setLoading(true);
-      setError(null);
       const queryString = searchParams.toString();
       const endpoint = queryString ? `/api/products?${queryString}` : '/api/products';
       const data = await apiGet<ProductsResponse>(endpoint);
@@ -79,73 +134,12 @@ export function HomePage() {
         setProducts(data.products);
         setTotal(data.total ?? data.products.length);
         setTotalPages(data.pages ?? 1);
-        return;
       }
-    } catch (err: unknown) {
-      console.warn('Backend waking up or unreachable, using instant catalog fallback:', err);
+    } catch (err) {
+      // Backend is waking up; UI continues smoothly with offline data
+      console.warn('Backend is waking up; serving instant catalog:', err);
     }
-
-    // Resilient fallback: Use local mock catalog with full filter and sort matching
-    try {
-      let filtered = [...MOCK_PRODUCTS];
-
-      if (currentCategory) {
-        const cat = currentCategory.toLowerCase();
-        filtered = filtered.filter((p) => {
-          if (cat === 'apparel' || cat === 'clothing') {
-            return p.category === 'apparel' || p.category === 'clothing';
-          }
-          return p.category.toLowerCase() === cat;
-        });
-      }
-
-      if (currentMinPrice) {
-        const min = Number(currentMinPrice);
-        if (!isNaN(min)) filtered = filtered.filter((p) => p.price >= min);
-      }
-
-      if (currentMaxPrice) {
-        const max = Number(currentMaxPrice);
-        if (!isNaN(max)) filtered = filtered.filter((p) => p.price <= max);
-      }
-
-      if (currentMinRating) {
-        const rating = Number(currentMinRating);
-        if (!isNaN(rating)) filtered = filtered.filter((p) => (p.ratingAvg || 0) >= rating);
-      }
-
-      if (currentInStock) {
-        filtered = filtered.filter((p) => p.stock > 0);
-      }
-
-      if (currentSearch) {
-        const q = currentSearch.toLowerCase();
-        filtered = filtered.filter((p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q)
-        );
-      }
-
-      if (currentSort === 'price-asc') filtered.sort((a, b) => a.price - b.price);
-      else if (currentSort === 'price-desc') filtered.sort((a, b) => b.price - a.price);
-      else if (currentSort === 'rating') filtered.sort((a, b) => (b.ratingAvg || 0) - (a.ratingAvg || 0));
-      else if (currentSort === 'popular') filtered.sort((a, b) => (b.numReviews || 0) - (a.numReviews || 0));
-
-      const limit = 16;
-      const skip = (currentPage - 1) * limit;
-      const paginated = filtered.slice(skip, skip + limit);
-
-      setProducts(paginated as Product[]);
-      setTotal(filtered.length);
-      setTotalPages(Math.ceil(filtered.length / limit) || 1);
-      setError(null);
-    } catch {
-      setError('Unable to load products. Please refresh the page.');
-    } finally {
-      setLoading(false);
-    }
-  }, [searchParams, currentCategory, currentMinPrice, currentMaxPrice, currentMinRating, currentInStock, currentSearch, currentSort, currentPage]);
+  }, [searchParams, filterLocalProducts]);
 
   // Synchronize local price inputs if URL search params change externally
   useEffect(() => {
@@ -595,56 +589,27 @@ export function HomePage() {
           </div>
 
           {/* Results Summary Bar */}
-          {!loading && !error && (
-            <div className="flex items-center justify-between text-xs text-gray-500 px-1">
-              <span>
-                Showing <strong>{products.length}</strong> of <strong>{total}</strong> products
-                {currentCategory && ` in ${CATEGORIES.find((c) => c.id === currentCategory)?.label || currentCategory}`}
-              </span>
-              <span>
-                Page {currentPage} of {totalPages}
-              </span>
-            </div>
-          )}
+          <div className="flex items-center justify-between text-xs text-gray-500 px-1">
+            <span>
+              Showing <strong>{products.length}</strong> of <strong>{total}</strong> products
+              {currentCategory && ` in ${CATEGORIES.find((c) => c.id === currentCategory)?.label || currentCategory}`}
+            </span>
+            <span>
+              Page {currentPage} of {totalPages}
+            </span>
+          </div>
 
-          {/* Error State */}
-          {error && (
-            <ErrorMessage
-              title="Failed to load catalog"
-              message={error}
-              onRetry={loadProducts}
-            />
-          )}
-
-          {/* Loading Skeletons */}
-          {loading && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {Array.from({ length: 9 }).map((_, idx) => (
-                <div
-                  key={idx}
-                  className="bg-white rounded-md border border-gray-200 p-4 animate-pulse space-y-3"
-                >
-                  <div className="aspect-square bg-gray-200 rounded w-full"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/3"></div>
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                  <div className="h-6 bg-gray-200 rounded w-1/4 pt-2"></div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Product Grid */}
-          {!loading && !error && products.length > 0 && (
+          {/* Product Grid (Always rendered with 0 blank frames) */}
+          {products.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {products.map((product) => (
-                <ProductCard key={product._id || product.id} product={product} />
+                <ProductCard key={product._id || (product as any).id} product={product} />
               ))}
             </div>
           )}
 
           {/* Empty State */}
-          {!loading && !error && products.length === 0 && (
+          {products.length === 0 && (
             <EmptyState
               icon="🔍"
               title="No products match your filters"
