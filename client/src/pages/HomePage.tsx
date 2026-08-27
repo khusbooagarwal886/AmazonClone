@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { apiGet } from '../lib/api';
+import { MOCK_PRODUCTS } from '../data/mockProducts';
 import { ProductCard } from '../components/ProductCard';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { EmptyState } from '../components/EmptyState';
@@ -65,7 +66,7 @@ export function HomePage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch products function
+  // Fetch products function with instant fallback
   const loadProducts = useCallback(async () => {
     try {
       setLoading(true);
@@ -74,19 +75,77 @@ export function HomePage() {
       const endpoint = queryString ? `/api/products?${queryString}` : '/api/products';
       const data = await apiGet<ProductsResponse>(endpoint);
 
-      setProducts(data.products || []);
-      setTotal(data.total ?? (data.products ? data.products.length : 0));
-      setTotalPages(data.pages ?? 1);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Failed to fetch products from the server');
+      if (data && data.products && data.products.length > 0) {
+        setProducts(data.products);
+        setTotal(data.total ?? data.products.length);
+        setTotalPages(data.pages ?? 1);
+        return;
       }
+    } catch (err: unknown) {
+      console.warn('Backend waking up or unreachable, using instant catalog fallback:', err);
+    }
+
+    // Resilient fallback: Use local mock catalog with full filter and sort matching
+    try {
+      let filtered = [...MOCK_PRODUCTS];
+
+      if (currentCategory) {
+        const cat = currentCategory.toLowerCase();
+        filtered = filtered.filter((p) => {
+          if (cat === 'apparel' || cat === 'clothing') {
+            return p.category === 'apparel' || p.category === 'clothing';
+          }
+          return p.category.toLowerCase() === cat;
+        });
+      }
+
+      if (currentMinPrice) {
+        const min = Number(currentMinPrice);
+        if (!isNaN(min)) filtered = filtered.filter((p) => p.price >= min);
+      }
+
+      if (currentMaxPrice) {
+        const max = Number(currentMaxPrice);
+        if (!isNaN(max)) filtered = filtered.filter((p) => p.price <= max);
+      }
+
+      if (currentMinRating) {
+        const rating = Number(currentMinRating);
+        if (!isNaN(rating)) filtered = filtered.filter((p) => (p.ratingAvg || 0) >= rating);
+      }
+
+      if (currentInStock) {
+        filtered = filtered.filter((p) => p.stock > 0);
+      }
+
+      if (currentSearch) {
+        const q = currentSearch.toLowerCase();
+        filtered = filtered.filter((p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q)
+        );
+      }
+
+      if (currentSort === 'price-asc') filtered.sort((a, b) => a.price - b.price);
+      else if (currentSort === 'price-desc') filtered.sort((a, b) => b.price - a.price);
+      else if (currentSort === 'rating') filtered.sort((a, b) => (b.ratingAvg || 0) - (a.ratingAvg || 0));
+      else if (currentSort === 'popular') filtered.sort((a, b) => (b.numReviews || 0) - (a.numReviews || 0));
+
+      const limit = 16;
+      const skip = (currentPage - 1) * limit;
+      const paginated = filtered.slice(skip, skip + limit);
+
+      setProducts(paginated as Product[]);
+      setTotal(filtered.length);
+      setTotalPages(Math.ceil(filtered.length / limit) || 1);
+      setError(null);
+    } catch {
+      setError('Unable to load products. Please refresh the page.');
     } finally {
       setLoading(false);
     }
-  }, [searchParams]);
+  }, [searchParams, currentCategory, currentMinPrice, currentMaxPrice, currentMinRating, currentInStock, currentSearch, currentSort, currentPage]);
 
   // Synchronize local price inputs if URL search params change externally
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiGet, apiPost } from '../lib/api';
+import { MOCK_PRODUCTS } from '../data/mockProducts';
 import { useCartStore } from '../store/useCartStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { ReviewsSection } from '../components/ReviewsSection';
@@ -34,23 +35,29 @@ export function ProductDetailPage() {
       setLoading(true);
       setError(null);
       const data = await apiGet<ProductDetailResponse>(`/api/products/${id}`);
-      if (data.product) {
+      if (data && data.product) {
         setProduct(data.product);
         if (data.product.images && data.product.images.length > 0) {
           setSelectedImage(data.product.images[0]);
         }
-      } else {
-        setError('Product not found');
+        return;
       }
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Failed to fetch product details');
-      }
-    } finally {
-      setLoading(false);
+      console.warn('Backend waking up, checking local catalog:', err);
     }
+
+    // Fallback to local catalog
+    const found = MOCK_PRODUCTS.find((p) => p._id === id || (p as any).id === id);
+    if (found) {
+      setProduct(found as Product);
+      if (found.images && found.images.length > 0) {
+        setSelectedImage(found.images[0]);
+      }
+      setError(null);
+    } else {
+      setError('Product not found');
+    }
+    setLoading(false);
   }, [id]);
 
   useEffect(() => {
