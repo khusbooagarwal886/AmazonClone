@@ -11,7 +11,7 @@ const PRODUCTS_CACHE_KEY = 'products:all';
 const PRODUCTS_CACHE_TTL = 60; // 60 seconds
 
 // @route   GET /api/products
-// @desc    Get all products with optional filters (category, minPrice, maxPrice, search) & pagination
+// @desc    Get all products with optional filters (category, minPrice, maxPrice, search, minRating, inStock, sort) & pagination
 // @access  Public
 export const getProducts = async (
   req: Request,
@@ -19,11 +19,11 @@ export const getProducts = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { category, minPrice, maxPrice, search } = req.query;
+    const { category, minPrice, maxPrice, search, minRating, inStock, sort } = req.query;
 
     // Parse and sanitize pagination parameters
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string, 10) || 12));
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string, 10) || 16));
     const skip = (page - 1) * limit;
 
     // Build filter query for MongoDB based on query parameters
@@ -31,7 +31,12 @@ export const getProducts = async (
 
     // 1. Filter by category
     if (typeof category === 'string' && category.trim() !== '') {
-      filter.category = category.trim().toLowerCase();
+      const cat = category.trim().toLowerCase();
+      if (cat === 'apparel' || cat === 'clothing') {
+        filter.category = { $in: ['apparel', 'clothing'] };
+      } else {
+        filter.category = cat;
+      }
     }
 
     // 2. Filter by price range (minPrice and/or maxPrice)
@@ -49,7 +54,20 @@ export const getProducts = async (
       }
     }
 
-    // 3. Robust search query across product name, description, and category
+    // 3. Filter by minimum rating (Customer Reviews)
+    if (minRating !== undefined && minRating !== '') {
+      const rating = Number(minRating);
+      if (!isNaN(rating)) {
+        filter.ratingAvg = { $gte: rating };
+      }
+    }
+
+    // 4. Filter by stock availability
+    if (inStock === 'true') {
+      filter.stock = { $gt: 0 };
+    }
+
+    // 5. Robust search query across product name, description, and category
     if (typeof search === 'string' && search.trim() !== '') {
       const terms = search.trim().split(/\s+/).filter(Boolean);
       if (terms.length > 0) {
@@ -73,9 +91,22 @@ export const getProducts = async (
       }
     }
 
+    // Build sort options
+    let sortOptions: Record<string, 1 | -1> = { createdAt: -1 };
+    if (sort === 'price-asc') {
+      sortOptions = { price: 1 };
+    } else if (sort === 'price-desc') {
+      sortOptions = { price: -1 };
+    } else if (sort === 'rating') {
+      sortOptions = { ratingAvg: -1, numReviews: -1 };
+    } else if (sort === 'popular') {
+      sortOptions = { numReviews: -1 };
+    } else if (sort === 'newest') {
+      sortOptions = { createdAt: -1 };
+    }
 
     const hasFilters = Object.keys(filter).length > 0;
-    const isDefaultFirstPage = !hasFilters && page === 1 && !req.query.limit;
+    const isDefaultFirstPage = !hasFilters && page === 1 && !req.query.limit && !sort;
 
     // Check Redis cache first (only for default unfiltered first-page query)
     if (isDefaultFirstPage && redisClient && redisClient.isOpen) {
@@ -128,7 +159,20 @@ export const getProducts = async (
         }
       }
 
-      // 3. Filter by search term
+      // 3. Filter by rating
+      if (minRating !== undefined && minRating !== '') {
+        const rating = Number(minRating);
+        if (!isNaN(rating)) {
+          filtered = filtered.filter((p) => (p.ratingAvg || 0) >= rating);
+        }
+      }
+
+      // 4. Filter by stock
+      if (inStock === 'true') {
+        filtered = filtered.filter((p) => p.stock > 0);
+      }
+
+      // 5. Filter by search term
       if (typeof search === 'string' && search.trim() !== '') {
         const query = search.trim().toLowerCase();
         filtered = filtered.filter((p) =>
@@ -136,6 +180,17 @@ export const getProducts = async (
           p.description.toLowerCase().includes(query) ||
           p.category.toLowerCase().includes(query)
         );
+      }
+
+      // Sort mock products
+      if (sort === 'price-asc') {
+        filtered.sort((a, b) => a.price - b.price);
+      } else if (sort === 'price-desc') {
+        filtered.sort((a, b) => b.price - a.price);
+      } else if (sort === 'rating') {
+        filtered.sort((a, b) => (b.ratingAvg || 0) - (a.ratingAvg || 0));
+      } else if (sort === 'popular') {
+        filtered.sort((a, b) => (b.numReviews || 0) - (a.numReviews || 0));
       }
 
       const total = filtered.length;
@@ -154,11 +209,11 @@ export const getProducts = async (
       return;
     }
 
-    // Query MongoDB with the constructed filter and pagination in parallel
+    // Query MongoDB with the constructed filter, sort, and pagination in parallel
     const [total, products] = await Promise.all([
       Product.countDocuments(filter),
       Product.find(filter)
-        .sort({ createdAt: -1 })
+        .sort(sortOptions)
         .skip(skip)
         .limit(limit),
     ]);
