@@ -1,7 +1,25 @@
 import { useAuthStore } from '../store/useAuthStore';
 
-const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').trim();
-const API_BASE_URL = rawApiUrl.endsWith('/') ? rawApiUrl.slice(0, -1) : rawApiUrl;
+// Auto-detect production vs development host to prevent localhost failures on Vercel
+const isProdHost =
+  typeof window !== 'undefined' &&
+  window.location.hostname !== 'localhost' &&
+  window.location.hostname !== '127.0.0.1';
+
+const RENDER_BACKEND_URL = 'https://amazon-clone-backend-l9g0.onrender.com';
+const LOCAL_BACKEND_URL = 'http://localhost:5000';
+
+const envUrl = (import.meta.env.VITE_API_URL || '').trim();
+
+// If on Vercel/production and envUrl is localhost or empty, always point to live Render backend
+const resolvedApiUrl =
+  isProdHost && (envUrl === '' || envUrl.includes('localhost') || envUrl.includes('127.0.0.1'))
+    ? RENDER_BACKEND_URL
+    : envUrl || (isProdHost ? RENDER_BACKEND_URL : LOCAL_BACKEND_URL);
+
+const API_BASE_URL = resolvedApiUrl.endsWith('/')
+  ? resolvedApiUrl.slice(0, -1)
+  : resolvedApiUrl;
 
 interface ApiOptions extends RequestInit {
   data?: unknown;
@@ -80,4 +98,3 @@ export function apiDelete<T = unknown>(
 ): Promise<T> {
   return apiRequest<T>(endpoint, { method: 'DELETE', ...options });
 }
-
