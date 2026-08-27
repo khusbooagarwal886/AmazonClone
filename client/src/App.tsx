@@ -67,17 +67,21 @@ function Navigation() {
 
         {/* Nav links & Auth */}
         <nav className="flex items-center space-x-3 sm:space-x-5 text-xs sm:text-sm font-medium shrink-0">
-          <Link to="/" className="hover:text-amazon-amber transition hidden xs:inline">
+          {/* Explicit Home Link */}
+          <Link
+            to="/"
+            className="hover:text-amazon-amber text-white font-semibold transition px-2 py-1 rounded hover:bg-white/10"
+          >
             Home
           </Link>
 
           {/* Cart Navigation Link with Badge */}
           <Link
             to="/cart"
-            className="flex items-center space-x-1 hover:text-amazon-amber transition relative py-1 px-1.5 rounded"
+            className="flex items-center space-x-1 hover:text-amazon-amber transition relative py-1 px-1.5 rounded hover:bg-white/10"
           >
             <span className="text-lg sm:text-xl">🛒</span>
-            <span className="font-bold hidden xs:inline">Cart</span>
+            <span className="font-bold">Cart</span>
             <span className="bg-amazon-amber text-gray-900 text-xs font-extrabold rounded-full px-1.5 py-0.2 min-w-[18px] text-center">
               {totalItems}
             </span>
@@ -112,6 +116,37 @@ function Navigation() {
             </>
           )}
         </nav>
+      </div>
+
+      {/* Sub-Navbar: Categories and Quick Navigation */}
+      <div className="bg-amazon-subnav text-white text-xs px-3 sm:px-4 py-1.5 border-t border-gray-700/40">
+        <div className="max-w-6xl mx-auto flex items-center space-x-4 sm:space-x-6 overflow-x-auto whitespace-nowrap">
+          <Link
+            to="/"
+            className="hover:text-amazon-amber font-semibold flex items-center space-x-1 text-white"
+          >
+            <span>☰</span>
+            <span>All Products</span>
+          </Link>
+          <Link to="/?category=electronics" className="hover:text-amazon-amber transition text-gray-200">
+            Electronics
+          </Link>
+          <Link to="/?category=computers" className="hover:text-amazon-amber transition text-gray-200">
+            Computers
+          </Link>
+          <Link to="/?category=home" className="hover:text-amazon-amber transition text-gray-200">
+            Home & Kitchen
+          </Link>
+          <Link to="/?category=apparel" className="hover:text-amazon-amber transition text-gray-200">
+            Clothing & Apparel
+          </Link>
+          <Link to="/?category=books" className="hover:text-amazon-amber transition text-gray-200">
+            Books
+          </Link>
+          <Link to="/?category=sports" className="hover:text-amazon-amber transition text-gray-200">
+            Sports & Outdoors
+          </Link>
+        </div>
       </div>
     </header>
   );
