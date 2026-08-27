@@ -16,9 +16,10 @@ export interface CartState {
   getTotalPrice: () => number;
 }
 
-const getUserKey = (userId?: string | null): string => {
-  if (!userId || userId.trim() === '') return 'guest';
-  return userId;
+const getActiveUserKey = (): string => {
+  const user = useAuthStore.getState().user;
+  const key = user?.id || user?._id || user?.email;
+  return key && key.trim() !== '' ? key : 'guest';
 };
 
 export const useCartStore = create<CartState>()(
@@ -29,7 +30,7 @@ export const useCartStore = create<CartState>()(
       currentUserId: 'guest',
 
       setUser: (userId: string | null) => {
-        const userKey = getUserKey(userId);
+        const userKey = userId && userId.trim() !== '' ? userId : 'guest';
         const { userCarts } = get();
         const activeItems = userCarts[userKey] || [];
         set({
@@ -42,8 +43,8 @@ export const useCartStore = create<CartState>()(
         if (quantity <= 0) return;
 
         set((state) => {
-          const userKey = state.currentUserId || 'guest';
-          const currentItems = state.userCarts[userKey] || state.items || [];
+          const userKey = getActiveUserKey();
+          const currentItems = state.userCarts[userKey] || [];
           const productId = product._id || product.id;
           const existingIndex = currentItems.findIndex(
             (item) => (item.product._id || item.product.id) === productId
@@ -70,6 +71,7 @@ export const useCartStore = create<CartState>()(
 
           return {
             items: updatedItems,
+            currentUserId: userKey,
             userCarts: {
               ...state.userCarts,
               [userKey]: updatedItems,
@@ -80,14 +82,15 @@ export const useCartStore = create<CartState>()(
 
       removeItem: (productId: string) => {
         set((state) => {
-          const userKey = state.currentUserId || 'guest';
-          const currentItems = state.userCarts[userKey] || state.items || [];
+          const userKey = getActiveUserKey();
+          const currentItems = state.userCarts[userKey] || [];
           const updatedItems = currentItems.filter(
             (item) => item.product._id !== productId && item.product.id !== productId
           );
 
           return {
             items: updatedItems,
+            currentUserId: userKey,
             userCarts: {
               ...state.userCarts,
               [userKey]: updatedItems,
@@ -98,8 +101,8 @@ export const useCartStore = create<CartState>()(
 
       updateQuantity: (productId: string, quantity: number) => {
         set((state) => {
-          const userKey = state.currentUserId || 'guest';
-          const currentItems = state.userCarts[userKey] || state.items || [];
+          const userKey = getActiveUserKey();
+          const currentItems = state.userCarts[userKey] || [];
 
           let updatedItems: CartItem[];
 
@@ -122,6 +125,7 @@ export const useCartStore = create<CartState>()(
 
           return {
             items: updatedItems,
+            currentUserId: userKey,
             userCarts: {
               ...state.userCarts,
               [userKey]: updatedItems,
@@ -132,9 +136,10 @@ export const useCartStore = create<CartState>()(
 
       clearCart: () => {
         set((state) => {
-          const userKey = state.currentUserId || 'guest';
+          const userKey = getActiveUserKey();
           return {
             items: [],
+            currentUserId: userKey,
             userCarts: {
               ...state.userCarts,
               [userKey]: [],
@@ -144,26 +149,29 @@ export const useCartStore = create<CartState>()(
       },
 
       getTotalItems: () => {
-        return get().items.reduce((total, item) => total + item.quantity, 0);
+        const userKey = getActiveUserKey();
+        const activeItems = get().userCarts[userKey] || get().items || [];
+        return activeItems.reduce((total, item) => total + item.quantity, 0);
       },
 
       getTotalPrice: () => {
-        return get().items.reduce(
+        const userKey = getActiveUserKey();
+        const activeItems = get().userCarts[userKey] || get().items || [];
+        return activeItems.reduce(
           (total, item) => total + item.product.price * item.quantity,
           0
         );
       },
     }),
     {
-      name: 'amazon-cart-storage-v2',
+      name: 'amazon-cart-storage-v3',
       partialize: (state) => ({
         userCarts: state.userCarts,
         currentUserId: state.currentUserId,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          const currentUser = useAuthStore.getState().user;
-          const userKey = getUserKey(currentUser?._id || currentUser?.id);
+          const userKey = getActiveUserKey();
           state.currentUserId = userKey;
           state.items = state.userCarts[userKey] || [];
         }
@@ -172,8 +180,8 @@ export const useCartStore = create<CartState>()(
   )
 );
 
-// Subscribe to auth store changes to automatically switch user cart on login/logout
+// Subscribe to auth changes to immediately swap cart items on login/logout
 useAuthStore.subscribe((authState) => {
-  const userId = authState.user?._id || authState.user?.id || null;
-  useCartStore.getState().setUser(userId);
+  const userKey = authState.user?.id || authState.user?._id || authState.user?.email || null;
+  useCartStore.getState().setUser(userKey);
 });
