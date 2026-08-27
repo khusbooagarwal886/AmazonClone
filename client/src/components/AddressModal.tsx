@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useAddressStore } from '../store/useAddressStore';
+import { useAuthStore } from '../store/useAuthStore';
+import { getCurrentLocation } from '../lib/geolocation';
 import type { Address } from '../types';
 
 interface AddressModalProps {
@@ -26,17 +28,22 @@ export function AddressModal({ isOpen, onClose }: AddressModalProps) {
     setDefaultAddress,
   } = useAddressStore();
 
+  const { user } = useAuthStore();
+
   const addresses = getAddresses();
   const selectedAddress = getSelectedAddress();
 
   const [isAddingNew, setIsAddingNew] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationSuccessMsg, setLocationSuccessMsg] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
-    fullName: '',
+    fullName: user?.name || '',
     phone: '',
     street: '',
     apartment: '',
     city: '',
-    state: 'Karnataka',
+    state: 'Maharashtra',
     postalCode: '',
     country: 'India',
     isDefault: false,
@@ -56,9 +63,69 @@ export function AddressModal({ isOpen, onClose }: AddressModalProps) {
     }
   };
 
+  /**
+   * Fetches the user's live GPS location and auto-fills or creates address
+   */
+  const handleFetchCurrentLocation = async (autoSaveDirectly = false) => {
+    try {
+      setIsLocating(true);
+      setFormError(null);
+      setLocationSuccessMsg(null);
+
+      const loc = await getCurrentLocation();
+
+      const updatedFormData = {
+        fullName: formData.fullName || user?.name || 'My Location',
+        phone: formData.phone || '9876543210',
+        street: loc.street || 'Current GPS Location',
+        apartment: loc.apartment || '',
+        city: loc.city || 'Mumbai',
+        state: loc.state || 'Maharashtra',
+        postalCode: loc.postalCode || '400001',
+        country: loc.country || 'India',
+        isDefault: formData.isDefault,
+      };
+
+      setFormData(updatedFormData);
+
+      if (autoSaveDirectly && (user?.name || formData.fullName)) {
+        addAddress(updatedFormData);
+        setLocationSuccessMsg(`✓ Added & Selected: ${loc.city}, ${loc.state} (${loc.postalCode})`);
+        setTimeout(() => {
+          setLocationSuccessMsg(null);
+        }, 4000);
+      } else {
+        // Switch to the form view so user can enter or confirm their contact details
+        setIsAddingNew(true);
+        setLocationSuccessMsg(`✓ Location detected: ${loc.city}, ${loc.state} ${loc.postalCode}`);
+        setTimeout(() => {
+          setLocationSuccessMsg(null);
+        }, 5000);
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        if (err.message.toLowerCase().includes('denied')) {
+          setFormError('Location access was denied. Please allow location permissions in your browser.');
+        } else {
+          setFormError(err.message || 'Unable to fetch your GPS location.');
+        }
+      } else {
+        setFormError('Failed to detect GPS location. Please enter manually.');
+      }
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.fullName.trim() || !formData.phone.trim() || !formData.street.trim() || !formData.city.trim() || !formData.postalCode.trim()) {
+    if (
+      !formData.fullName.trim() ||
+      !formData.phone.trim() ||
+      !formData.street.trim() ||
+      !formData.city.trim() ||
+      !formData.postalCode.trim()
+    ) {
       setFormError('Please fill in all required fields (Name, Phone, Street, City, PIN Code).');
       return;
     }
@@ -66,17 +133,18 @@ export function AddressModal({ isOpen, onClose }: AddressModalProps) {
     addAddress(formData);
     setIsAddingNew(false);
     setFormData({
-      fullName: '',
+      fullName: user?.name || '',
       phone: '',
       street: '',
       apartment: '',
       city: '',
-      state: 'Karnataka',
+      state: 'Maharashtra',
       postalCode: '',
       country: 'India',
       isDefault: false,
     });
     setFormError(null);
+    setLocationSuccessMsg(null);
   };
 
   return (
@@ -98,16 +166,72 @@ export function AddressModal({ isOpen, onClose }: AddressModalProps) {
         </div>
 
         {/* Content Body */}
-        <div className="p-5 overflow-y-auto space-y-5 flex-1">
-          <p className="text-xs text-gray-600">
-            Delivery options and delivery speeds may vary for different locations. Select a saved address or add a new one.
-          </p>
+        <div className="p-5 overflow-y-auto space-y-4 flex-1">
+          {/* Quick GPS Location Detection Banner */}
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-900 flex items-center justify-center font-bold text-sm shrink-0">
+                {isLocating ? '📡' : '📍'}
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-900">
+                  Deliver to your current location
+                </p>
+                <p className="text-[11px] text-gray-600">
+                  Detect your GPS coordinates &amp; auto-fill city, state and PIN code.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleFetchCurrentLocation(false)}
+              disabled={isLocating}
+              className="bg-amber-500 hover:bg-amber-600 text-gray-900 font-bold px-3.5 py-1.5 rounded-md text-xs transition cursor-pointer flex items-center space-x-1.5 shadow-xs disabled:opacity-50 shrink-0"
+            >
+              {isLocating ? (
+                <>
+                  <span className="inline-block animate-spin">⏳</span>
+                  <span>Detecting...</span>
+                </>
+              ) : (
+                <>
+                  <span>🛰️</span>
+                  <span>Use Current Location</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Success Banner */}
+          {locationSuccessMsg && (
+            <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 font-semibold text-xs flex items-center space-x-2 animate-in fade-in">
+              <span>🎉</span>
+              <span>{locationSuccessMsg}</span>
+            </div>
+          )}
+
+          {/* Error Banner */}
+          {formError && (
+            <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg text-red-700 font-medium text-xs flex items-center justify-between">
+              <span>{formError}</span>
+              <button
+                type="button"
+                onClick={() => setFormError(null)}
+                className="text-red-900 hover:underline font-bold text-xs ml-2"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           {!isAddingNew ? (
             <div className="space-y-3">
-              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
-                Saved Delivery Addresses
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                  Saved Delivery Addresses ({addresses.length})
+                </h3>
+              </div>
 
               <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
                 {addresses.map((addr: Address) => {
@@ -190,7 +314,20 @@ export function AddressModal({ isOpen, onClose }: AddressModalProps) {
 
               <button
                 type="button"
-                onClick={() => setIsAddingNew(true)}
+                onClick={() => {
+                  setFormData({
+                    fullName: user?.name || '',
+                    phone: '',
+                    street: '',
+                    apartment: '',
+                    city: '',
+                    state: 'Maharashtra',
+                    postalCode: '',
+                    country: 'India',
+                    isDefault: false,
+                  });
+                  setIsAddingNew(true);
+                }}
                 className="w-full bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold py-2.5 px-4 rounded-lg text-xs transition border border-gray-300 flex items-center justify-center space-x-2 cursor-pointer mt-3"
               >
                 <span>➕</span>
@@ -211,12 +348,6 @@ export function AddressModal({ isOpen, onClose }: AddressModalProps) {
                   ← Back to saved
                 </button>
               </div>
-
-              {formError && (
-                <div className="p-2.5 bg-red-50 border border-red-200 rounded text-red-700 font-medium text-xs">
-                  {formError}
-                </div>
-              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -251,9 +382,20 @@ export function AddressModal({ isOpen, onClose }: AddressModalProps) {
               </div>
 
               <div>
-                <label className="block font-semibold text-gray-700 mb-1">
-                  Flat, House no., Building, Company, Apartment *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-gray-700">
+                    Flat, House no., Building, Company, Apartment *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleFetchCurrentLocation(false)}
+                    disabled={isLocating}
+                    className="text-[11px] text-amber-800 hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>📍</span>
+                    <span>{isLocating ? 'Locating...' : 'Auto-fill GPS'}</span>
+                  </button>
+                </div>
                 <input
                   type="text"
                   name="street"
