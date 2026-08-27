@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { HomePage } from './pages/HomePage';
 import { DummyPage } from './pages/DummyPage';
@@ -18,6 +18,11 @@ function Navigation() {
   const totalItems = useCartStore((state) => state.getTotalItems());
   const navigate = useNavigate();
   const [navSearch, setNavSearch] = useState('');
+
+  useEffect(() => {
+    const userKey = user?.id || user?._id || user?.email || null;
+    useCartStore.getState().setUser(userKey);
+  }, [user]);
 
   const handleLogout = () => {
     clearAuth();

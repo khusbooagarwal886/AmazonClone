@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CartItem, Product } from '../types';
-import { useAuthStore } from './useAuthStore';
 
 export interface CartState {
   items: CartItem[];
@@ -15,12 +14,6 @@ export interface CartState {
   getTotalItems: () => number;
   getTotalPrice: () => number;
 }
-
-const getActiveUserKey = (): string => {
-  const user = useAuthStore.getState().user;
-  const key = user?.id || user?._id || user?.email;
-  return key && key.trim() !== '' ? key : 'guest';
-};
 
 export const useCartStore = create<CartState>()(
   persist(
@@ -43,8 +36,8 @@ export const useCartStore = create<CartState>()(
         if (quantity <= 0) return;
 
         set((state) => {
-          const userKey = getActiveUserKey();
-          const currentItems = state.userCarts[userKey] || [];
+          const userKey = state.currentUserId || 'guest';
+          const currentItems = state.userCarts[userKey] || state.items || [];
           const productId = product._id || product.id;
           const existingIndex = currentItems.findIndex(
             (item) => (item.product._id || item.product.id) === productId
@@ -71,7 +64,6 @@ export const useCartStore = create<CartState>()(
 
           return {
             items: updatedItems,
-            currentUserId: userKey,
             userCarts: {
               ...state.userCarts,
               [userKey]: updatedItems,
@@ -82,15 +74,14 @@ export const useCartStore = create<CartState>()(
 
       removeItem: (productId: string) => {
         set((state) => {
-          const userKey = getActiveUserKey();
-          const currentItems = state.userCarts[userKey] || [];
+          const userKey = state.currentUserId || 'guest';
+          const currentItems = state.userCarts[userKey] || state.items || [];
           const updatedItems = currentItems.filter(
             (item) => item.product._id !== productId && item.product.id !== productId
           );
 
           return {
             items: updatedItems,
-            currentUserId: userKey,
             userCarts: {
               ...state.userCarts,
               [userKey]: updatedItems,
@@ -101,8 +92,8 @@ export const useCartStore = create<CartState>()(
 
       updateQuantity: (productId: string, quantity: number) => {
         set((state) => {
-          const userKey = getActiveUserKey();
-          const currentItems = state.userCarts[userKey] || [];
+          const userKey = state.currentUserId || 'guest';
+          const currentItems = state.userCarts[userKey] || state.items || [];
 
           let updatedItems: CartItem[];
 
@@ -125,7 +116,6 @@ export const useCartStore = create<CartState>()(
 
           return {
             items: updatedItems,
-            currentUserId: userKey,
             userCarts: {
               ...state.userCarts,
               [userKey]: updatedItems,
@@ -136,10 +126,9 @@ export const useCartStore = create<CartState>()(
 
       clearCart: () => {
         set((state) => {
-          const userKey = getActiveUserKey();
+          const userKey = state.currentUserId || 'guest';
           return {
             items: [],
-            currentUserId: userKey,
             userCarts: {
               ...state.userCarts,
               [userKey]: [],
@@ -149,15 +138,11 @@ export const useCartStore = create<CartState>()(
       },
 
       getTotalItems: () => {
-        const userKey = getActiveUserKey();
-        const activeItems = get().userCarts[userKey] || get().items || [];
-        return activeItems.reduce((total, item) => total + item.quantity, 0);
+        return get().items.reduce((total, item) => total + item.quantity, 0);
       },
 
       getTotalPrice: () => {
-        const userKey = getActiveUserKey();
-        const activeItems = get().userCarts[userKey] || get().items || [];
-        return activeItems.reduce(
+        return get().items.reduce(
           (total, item) => total + item.product.price * item.quantity,
           0
         );
@@ -168,20 +153,14 @@ export const useCartStore = create<CartState>()(
       partialize: (state) => ({
         userCarts: state.userCarts,
         currentUserId: state.currentUserId,
+        items: state.items,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          const userKey = getActiveUserKey();
-          state.currentUserId = userKey;
+          const userKey = state.currentUserId || 'guest';
           state.items = state.userCarts[userKey] || [];
         }
       },
     }
   )
 );
-
-// Subscribe to auth changes to immediately swap cart items on login/logout
-useAuthStore.subscribe((authState) => {
-  const userKey = authState.user?.id || authState.user?._id || authState.user?.email || null;
-  useCartStore.getState().setUser(userKey);
-});
