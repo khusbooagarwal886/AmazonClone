@@ -131,7 +131,7 @@ export function CartPage() {
                           {product.name}
                         </Link>
                         <span className="font-bold text-gray-900 text-base sm:hidden shrink-0">
-                          ${(product.price * quantity).toFixed(2)}
+                          ₹{(product.price * quantity).toFixed(2)}
                         </span>
                       </div>
 
@@ -183,11 +183,11 @@ export function CartPage() {
                   {/* Item Subtotal for desktop */}
                   <div className="hidden sm:block text-right flex-shrink-0">
                     <p className="font-bold text-gray-900 text-base sm:text-lg">
-                      ${(product.price * quantity).toFixed(2)}
+                      ₹{(product.price * quantity).toFixed(2)}
                     </p>
                     {quantity > 1 && (
                       <p className="text-xs text-gray-500">
-                        (${product.price.toFixed(2)} each)
+                        (₹{product.price.toFixed(2)} each)
                       </p>
                     )}
                   </div>
@@ -209,7 +209,7 @@ export function CartPage() {
                 Subtotal ({totalItems} {totalItems === 1 ? 'item' : 'items'}):{' '}
               </span>
               <span className="text-base sm:text-lg font-bold text-gray-900">
-                ${totalPrice.toFixed(2)}
+                ₹{totalPrice.toFixed(2)}
               </span>
             </div>
           </div>
@@ -228,7 +228,7 @@ export function CartPage() {
           {/* Subtotal */}
           <div className="text-base text-gray-900">
             <span>Subtotal ({totalItems} {totalItems === 1 ? 'item' : 'items'}): </span>
-            <span className="text-2xl font-bold block mt-1">${totalPrice.toFixed(2)}</span>
+            <span className="text-2xl font-bold block mt-1">₹{totalPrice.toFixed(2)}</span>
           </div>
 
           {/* Gift checkbox mockup */}

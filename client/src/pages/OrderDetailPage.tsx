@@ -189,7 +189,7 @@ export function OrderDetailPage() {
           <div>
             <span className="text-gray-500 block text-xs font-semibold uppercase">Total Amount</span>
             <span className="text-gray-900 font-bold text-base">
-              ${order.totalPrice.toFixed(2)}
+              ₹{order.totalPrice.toFixed(2)}
             </span>
           </div>
           <div>
@@ -255,7 +255,7 @@ export function OrderDetailPage() {
                         </h3>
                       )}
                       <p className="text-xs text-gray-500 mt-1">
-                        Unit Price: <span className="font-medium text-gray-700">${item.price.toFixed(2)}</span>
+                        Unit Price: <span className="font-medium text-gray-700">₹{item.price.toFixed(2)}</span>
                       </p>
                       <p className="text-xs text-gray-500">
                         Qty: <span className="font-medium text-gray-700">{item.quantity}</span>
@@ -265,7 +265,7 @@ export function OrderDetailPage() {
                     {/* Item Subtotal */}
                     <div className="text-right">
                       <span className="text-base font-bold text-gray-900">
-                        ${(item.price * item.quantity).toFixed(2)}
+                        ₹{(item.price * item.quantity).toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -335,7 +335,7 @@ export function OrderDetailPage() {
             <div className="space-y-2.5 text-sm text-gray-600">
               <div className="flex justify-between">
                 <span>Items Subtotal:</span>
-                <span className="text-gray-900 font-medium">${order.totalPrice.toFixed(2)}</span>
+                <span className="text-gray-900 font-medium">₹{order.totalPrice.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Shipping & Handling:</span>
@@ -343,11 +343,11 @@ export function OrderDetailPage() {
               </div>
               <div className="flex justify-between">
                 <span>Estimated Tax:</span>
-                <span className="text-gray-900 font-medium">$0.00</span>
+                <span className="text-gray-900 font-medium">₹0.00</span>
               </div>
               <div className="border-t border-gray-200 pt-3 flex justify-between text-base font-bold text-gray-900">
                 <span>Grand Total:</span>
-                <span className="text-amazon-amber text-lg">${order.totalPrice.toFixed(2)}</span>
+                <span className="text-amazon-amber text-lg">₹{order.totalPrice.toFixed(2)}</span>
               </div>
             </div>
 

@@ -208,7 +208,7 @@ export const createCheckoutSession = async (
 
       lineItems.push({
         price_data: {
-          currency: 'usd',
+          currency: 'inr',
           product_data: {
             name: product.name,
             images: product.images && product.images.length > 0 ? [product.images[0]] : [],

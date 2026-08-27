@@ -49,7 +49,7 @@ export function ProductCard({ product }: ProductCardProps) {
       {/* Price & Stock */}
       <div className="mt-auto pt-2 flex items-baseline justify-between border-t border-gray-100">
         <div>
-          <span className="text-xs text-gray-500 align-top">$</span>
+          <span className="text-xs text-gray-500 align-top mr-0.5">₹</span>
           <span className="text-lg font-bold text-gray-900">{product.price.toFixed(2)}</span>
         </div>
 

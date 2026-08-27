@@ -208,7 +208,7 @@ export function ProductDetailPage() {
               <div className="flex items-baseline space-x-2">
                 <span className="text-xs text-gray-500 align-top">Price:</span>
                 <span className="text-2xl sm:text-3xl font-extrabold text-gray-900">
-                  ${product.price.toFixed(2)}
+                  ₹{product.price.toFixed(2)}
                 </span>
               </div>
 
@@ -225,7 +225,7 @@ export function ProductDetailPage() {
             <div className="lg:col-span-3">
               <div className="border border-gray-200 rounded-lg p-4 sm:p-5 space-y-4 bg-gray-50 shadow-sm lg:sticky lg:top-20">
                 <div className="text-2xl font-bold text-gray-900">
-                  ${(product.price * quantity).toFixed(2)}
+                  ₹{(product.price * quantity).toFixed(2)}
                 </div>
 
                 {/* Stock status */}

@@ -211,7 +211,7 @@ export function HomePage() {
             <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
               <input
                 type="number"
-                placeholder="Min $"
+                placeholder="Min ₹"
                 min="0"
                 value={minPriceInput}
                 onChange={(e) => setMinPriceInput(e.target.value)}
@@ -220,7 +220,7 @@ export function HomePage() {
               <span className="text-gray-400">-</span>
               <input
                 type="number"
-                placeholder="Max $"
+                placeholder="Max ₹"
                 min="0"
                 value={maxPriceInput}
                 onChange={(e) => setMaxPriceInput(e.target.value)}

@@ -189,8 +189,8 @@ export function ProfilePage() {
                   </div>
                   <p className="text-xs text-gray-500">
                     Placed on {new Date(ord.createdAt).toLocaleDateString()} &bull;{' '}
-                    {ord.orderItems.length} {ord.orderItems.length === 1 ? 'item' : 'items'} &bull; Total: $
-                    {ord.totalPrice.toFixed(2)}
+                    {ord.orderItems.length} {ord.orderItems.length === 1 ? 'item' : 'items'} &bull; Total:{' '}
+                    ₹{ord.totalPrice.toFixed(2)}
                   </p>
                 </div>
 
