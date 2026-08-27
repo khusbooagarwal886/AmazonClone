@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAddressStore } from '../store/useAddressStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { getCurrentLocation } from '../lib/geolocation';
+import { lookupPincode } from '../lib/pincodeLookup';
 import type { Address } from '../types';
 
 interface AddressModalProps {
@@ -35,6 +36,8 @@ export function AddressModal({ isOpen, onClose }: AddressModalProps) {
 
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [isPincodeLoading, setIsPincodeLoading] = useState(false);
+  const [pincodeFeedback, setPincodeFeedback] = useState<string | null>(null);
   const [locationSuccessMsg, setLocationSuccessMsg] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
@@ -60,6 +63,39 @@ export function AddressModal({ isOpen, onClose }: AddressModalProps) {
       setFormData((prev) => ({ ...prev, [name]: checked }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  /**
+   * Handle PIN code change with auto-fill for City and State
+   */
+  const handlePostalCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleanPin = e.target.value.replace(/\D/g, '').slice(0, 6);
+    setFormData((prev) => ({ ...prev, postalCode: cleanPin }));
+
+    if (cleanPin.length === 6) {
+      setIsPincodeLoading(true);
+      setPincodeFeedback(null);
+      try {
+        const details = await lookupPincode(cleanPin);
+        if (details) {
+          setFormData((prev) => ({
+            ...prev,
+            city: details.city,
+            state: details.state,
+          }));
+          setPincodeFeedback(`✓ Auto-filled: ${details.city}, ${details.state}`);
+          setTimeout(() => {
+            setPincodeFeedback(null);
+          }, 5000);
+        }
+      } catch (err) {
+        console.warn('Pincode lookup error:', err);
+      } finally {
+        setIsPincodeLoading(false);
+      }
+    } else {
+      setPincodeFeedback(null);
     }
   };
 
@@ -145,6 +181,7 @@ export function AddressModal({ isOpen, onClose }: AddressModalProps) {
     });
     setFormError(null);
     setLocationSuccessMsg(null);
+    setPincodeFeedback(null);
   };
 
   return (
@@ -421,7 +458,38 @@ export function AddressModal({ isOpen, onClose }: AddressModalProps) {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-2.5">
+              {/* PIN Code with live Auto-Fill indicator */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-semibold text-gray-700">
+                      PIN Code *
+                    </label>
+                    {isPincodeLoading && (
+                      <span className="text-[10px] text-amber-600 font-bold animate-pulse">
+                        Searching...
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="postalCode"
+                      required
+                      maxLength={6}
+                      placeholder="e.g. 560001"
+                      value={formData.postalCode}
+                      onChange={handlePostalCodeChange}
+                      className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
+                    />
+                    {formData.postalCode.length === 6 && !isPincodeLoading && (
+                      <span className="absolute right-2.5 top-2 text-xs text-emerald-600 font-bold">
+                        ✓
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 <div>
                   <label className="block font-semibold text-gray-700 mb-1">
                     Town/City *
@@ -430,10 +498,12 @@ export function AddressModal({ isOpen, onClose }: AddressModalProps) {
                     type="text"
                     name="city"
                     required
-                    placeholder="e.g. Bengaluru"
+                    placeholder="Auto-filled from PIN"
                     value={formData.city}
                     onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    className={`w-full p-2 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 ${
+                      pincodeFeedback ? 'border-emerald-400 bg-emerald-50/40' : 'border-gray-300'
+                    }`}
                   />
                 </div>
 
@@ -445,7 +515,9 @@ export function AddressModal({ isOpen, onClose }: AddressModalProps) {
                     name="state"
                     value={formData.state}
                     onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white"
+                    className={`w-full p-2 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white ${
+                      pincodeFeedback ? 'border-emerald-400 bg-emerald-50/40' : 'border-gray-300'
+                    }`}
                   >
                     {INDIAN_STATES.map((state) => (
                       <option key={state} value={state}>
@@ -454,23 +526,15 @@ export function AddressModal({ isOpen, onClose }: AddressModalProps) {
                     ))}
                   </select>
                 </div>
-
-                <div>
-                  <label className="block font-semibold text-gray-700 mb-1">
-                    PIN Code *
-                  </label>
-                  <input
-                    type="text"
-                    name="postalCode"
-                    required
-                    maxLength={6}
-                    placeholder="6 digits [0-9]"
-                    value={formData.postalCode}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
-                  />
-                </div>
               </div>
+
+              {/* PIN Code Auto-Fill Feedback Badge */}
+              {pincodeFeedback && (
+                <div className="p-2 bg-emerald-50 border border-emerald-200 rounded text-emerald-800 text-[11px] font-semibold flex items-center space-x-1.5 animate-in fade-in">
+                  <span>⚡</span>
+                  <span>{pincodeFeedback}</span>
+                </div>
+              )}
 
               <div className="pt-2">
                 <label className="flex items-center space-x-2 cursor-pointer select-none">
