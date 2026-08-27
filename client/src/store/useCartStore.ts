@@ -1,9 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CartItem, Product } from '../types';
+import { useAuthStore } from './useAuthStore';
 
 export interface CartState {
   items: CartItem[];
+  userCarts: Record<string, CartItem[]>;
+  currentUserId: string;
+  setUser: (userId: string | null) => void;
   addItem: (product: Product, quantity?: number) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -12,22 +16,43 @@ export interface CartState {
   getTotalPrice: () => number;
 }
 
+const getUserKey = (userId?: string | null): string => {
+  if (!userId || userId.trim() === '') return 'guest';
+  return userId;
+};
+
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
+      userCarts: {},
+      currentUserId: 'guest',
+
+      setUser: (userId: string | null) => {
+        const userKey = getUserKey(userId);
+        const { userCarts } = get();
+        const activeItems = userCarts[userKey] || [];
+        set({
+          currentUserId: userKey,
+          items: activeItems,
+        });
+      },
 
       addItem: (product: Product, quantity = 1) => {
         if (quantity <= 0) return;
 
         set((state) => {
+          const userKey = state.currentUserId || 'guest';
+          const currentItems = state.userCarts[userKey] || state.items || [];
           const productId = product._id || product.id;
-          const existingIndex = state.items.findIndex(
+          const existingIndex = currentItems.findIndex(
             (item) => (item.product._id || item.product.id) === productId
           );
 
+          let updatedItems: CartItem[];
+
           if (existingIndex > -1) {
-            const updatedItems = [...state.items];
+            updatedItems = [...currentItems];
             const existingItem = updatedItems[existingIndex];
             const newQuantity = existingItem.quantity + quantity;
             const finalQuantity =
@@ -37,53 +62,85 @@ export const useCartStore = create<CartState>()(
               ...existingItem,
               quantity: finalQuantity,
             };
-
-            return { items: updatedItems };
+          } else {
+            const initialQuantity =
+              product.stock > 0 ? Math.min(quantity, product.stock) : quantity;
+            updatedItems = [...currentItems, { product, quantity: initialQuantity }];
           }
 
-          const initialQuantity =
-            product.stock > 0 ? Math.min(quantity, product.stock) : quantity;
-
           return {
-            items: [...state.items, { product, quantity: initialQuantity }],
+            items: updatedItems,
+            userCarts: {
+              ...state.userCarts,
+              [userKey]: updatedItems,
+            },
           };
         });
       },
 
       removeItem: (productId: string) => {
-        set((state) => ({
-          items: state.items.filter(
+        set((state) => {
+          const userKey = state.currentUserId || 'guest';
+          const currentItems = state.userCarts[userKey] || state.items || [];
+          const updatedItems = currentItems.filter(
             (item) => item.product._id !== productId && item.product.id !== productId
-          ),
-        }));
+          );
+
+          return {
+            items: updatedItems,
+            userCarts: {
+              ...state.userCarts,
+              [userKey]: updatedItems,
+            },
+          };
+        });
       },
 
       updateQuantity: (productId: string, quantity: number) => {
-        if (quantity <= 0) {
-          set((state) => ({
-            items: state.items.filter(
-              (item) => item.product._id !== productId && item.product.id !== productId
-            ),
-          }));
-          return;
-        }
+        set((state) => {
+          const userKey = state.currentUserId || 'guest';
+          const currentItems = state.userCarts[userKey] || state.items || [];
 
-        set((state) => ({
-          items: state.items.map((item) => {
-            if ((item.product._id || item.product.id) === productId) {
-              const validQuantity =
-                item.product.stock > 0
-                  ? Math.min(quantity, item.product.stock)
-                  : quantity;
-              return { ...item, quantity: validQuantity };
-            }
-            return item;
-          }),
-        }));
+          let updatedItems: CartItem[];
+
+          if (quantity <= 0) {
+            updatedItems = currentItems.filter(
+              (item) => item.product._id !== productId && item.product.id !== productId
+            );
+          } else {
+            updatedItems = currentItems.map((item) => {
+              if ((item.product._id || item.product.id) === productId) {
+                const validQuantity =
+                  item.product.stock > 0
+                    ? Math.min(quantity, item.product.stock)
+                    : quantity;
+                return { ...item, quantity: validQuantity };
+              }
+              return item;
+            });
+          }
+
+          return {
+            items: updatedItems,
+            userCarts: {
+              ...state.userCarts,
+              [userKey]: updatedItems,
+            },
+          };
+        });
       },
 
       clearCart: () => {
-        set({ items: [] });
+        set((state) => {
+          const userKey = state.currentUserId || 'guest';
+          return {
+            items: [],
+            userCarts: {
+              ...state.userCarts,
+              [userKey]: [],
+            },
+          };
+        });
       },
 
       getTotalItems: () => {
@@ -98,8 +155,25 @@ export const useCartStore = create<CartState>()(
       },
     }),
     {
-      name: 'amazon-cart-storage',
-      partialize: (state) => ({ items: state.items }),
+      name: 'amazon-cart-storage-v2',
+      partialize: (state) => ({
+        userCarts: state.userCarts,
+        currentUserId: state.currentUserId,
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          const currentUser = useAuthStore.getState().user;
+          const userKey = getUserKey(currentUser?._id || currentUser?.id);
+          state.currentUserId = userKey;
+          state.items = state.userCarts[userKey] || [];
+        }
+      },
     }
   )
 );
+
+// Subscribe to auth store changes to automatically switch user cart on login/logout
+useAuthStore.subscribe((authState) => {
+  const userId = authState.user?._id || authState.user?.id || null;
+  useCartStore.getState().setUser(userId);
+});
